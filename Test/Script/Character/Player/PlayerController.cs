@@ -405,11 +405,11 @@ public class PlayerController : BaseCharacterController
                 if (interactable != null)
                 {
                     InteractionManager.GetInstance.SetTarget(interactable);
-                    _aim.TextStrSetting(InteractionManager.GetInstance.GetPrompt());
+                    _aim.TextStrSetting($"{InteractionManager.GetInstance.GetPrompt()}\n[{_interactKey.ToString()}]");
                 }
                 else
                 {
-                    _aim.TextStrSetting(_interactKey.ToString());
+                    _aim.TextStrSetting($"[{_interactKey.ToString()}]");
                 }
             }
         }

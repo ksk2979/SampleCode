@@ -36,6 +36,6 @@ public class InteractablePickup : MonoBehaviour, IInteractable
 
     public string GetInteractPrompt()
     {
-        return $"{_item._itemName}을(를) 습득한다 [E]";
+        return $"{_item._itemName}을\n습득한다";
     }
 }
