@@ -10,6 +10,6 @@ public class NpcInteractable : MonoBehaviour, IInteractable
     }
     public string GetInteractPrompt()
     {
-        return $"{_npcName}에게 말을 건다 (E)";
+        return $"{_npcName}에게 말을 건다 [E]";
     }
 }

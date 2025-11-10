@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-public class InteractablePickup : MonoBehaviour
+public class InteractablePickup : MonoBehaviour, IInteractable
 {
     [SerializeField] ItemData _item;
     [SerializeField] int _amount = 1;
@@ -21,5 +21,21 @@ public class InteractablePickup : MonoBehaviour
             }
         }
         return false;
+    }
+
+    public void Interact(PlayerController player)
+    {
+        var inventory = player.GetComponent<Inventory>();
+        if (inventory == null) { Debug.Log("플레이어 인벤토리 없음"); return; }
+
+        if (TryPickup(inventory))
+            Debug.Log($"{_item._itemName} 획득!");
+        else
+            Debug.Log("인벤토리 가득");
+    }
+
+    public string GetInteractPrompt()
+    {
+        return $"{_item._itemName}을(를) 습득한다 [E]";
     }
 }

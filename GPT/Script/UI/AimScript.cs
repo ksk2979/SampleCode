@@ -19,7 +19,7 @@ public class AimScript : MonoBehaviour
     }
     public void TextStrSetting(string text)
     {
-        _text.text = $"[{text}]";
+        _text.text = $"{text}";
     }
 
     public bool CheckAimActive { get { return _aimObj.activeSelf; } }

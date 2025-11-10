@@ -354,33 +354,15 @@ public class PlayerController : BaseCharacterController
         //if (!Keyboard.current[_interactKey].wasPressedThisFrame) return;
         if (!hasHit) { /*Debug.Log("히트 없음");*/ return; }
 
-        var npc = hit.collider.GetComponentInParent<NpcController>();
-        if (npc != null)
+        var interactable = hit.collider.GetComponent<IInteractable>();
+        if (interactable != null)
         {
-            Debug.Log("npc 상호작용");
+            InteractionManager.GetInstance.SetTarget(interactable);
+            InteractionManager.GetInstance.TryInteract(this);
+            _inventoryUI?.Refresh();
             return;
         }
 
-        // 히트 대상에서 픽업 시도
-        var pickup = hit.collider.GetComponentInParent<InteractablePickup>();
-        if (pickup != null)
-        {
-            if (_inventory == null) { return; }
-
-            bool ok = pickup.TryPickup(_inventory);
-            if (ok)
-            {
-                _inventoryUI?.Refresh();
-                //Debug.Log($"픽업 성공: {pickup.name}");
-            }
-            else
-            {
-                Debug.Log("인벤토리 가득/추가 불가");
-            }
-            return;
-        }
-
-        // 둘 다 아니면 로그
         Debug.Log($"상호작용 불가 대상: {hit.collider.name}");
     }
 
@@ -419,7 +401,16 @@ public class PlayerController : BaseCharacterController
             if (!_aim.CheckTextActive)
             {
                 _aim.TextActive(true);
-                _aim.TextStrSetting(_interactKey.ToString());
+                var interactable = hit.collider.GetComponent<IInteractable>();
+                if (interactable != null)
+                {
+                    InteractionManager.GetInstance.SetTarget(interactable);
+                    _aim.TextStrSetting(InteractionManager.GetInstance.GetPrompt());
+                }
+                else
+                {
+                    _aim.TextStrSetting(_interactKey.ToString());
+                }
             }
         }
         else
