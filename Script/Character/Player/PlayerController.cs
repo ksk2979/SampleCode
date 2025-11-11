@@ -1,10 +1,12 @@
 ﻿using JetBrains.Annotations;
+using System.Collections;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem;
 
-public class PlayerController : BaseCharacterController
+public class PlayerController : BaseCharacterController, IDayResettable
 {
     [Header("View")]
     [SerializeField] Transform _cameraPivot;   // 머리(피치 전용)
@@ -48,6 +50,12 @@ public class PlayerController : BaseCharacterController
     CapsuleCollider _capsule;
 
     OptionManager _optionManager;
+    CursorManager _cursorManager;
+    Coroutine _registerRoutine;
+    Vector3 _initPosition;
+    Quaternion _initRotation;
+    bool _hasInitTransform;
+    float _initPitch;
 
     public override void OnStart()
     {
@@ -87,15 +95,30 @@ public class PlayerController : BaseCharacterController
         _inventoryUI = UIManager.GetInstance.GetInventoryUI;
         _aim = UIManager.GetInstance.GetAim;
         _optionManager = UIManager.GetInstance.GetOptionManager;
+        _cursorManager = UIManager.GetInstance.GetCursorManager;
 
         if (_inventoryUI != null)
             _inventoryUI.OnInventoryChanged += HandleInventoryChanged;
+
+        CacheInitTransform();
+        EnsureRegisteredWithDayCycle();
     }
 
     void OnDisable()
     {
         if (_inventoryUI != null)
             _inventoryUI.OnInventoryChanged -= HandleInventoryChanged;
+
+        if (_registerRoutine != null)
+        {
+            StopCoroutine(_registerRoutine);
+            _registerRoutine = null;
+        }
+
+        if (UIManager.GetInstance.GetDayCycleManager != null)
+        {
+            UIManager.GetInstance.GetDayCycleManager.UnregisterResettable(this);
+        }
     }
 
     void Update()
@@ -518,6 +541,118 @@ public class PlayerController : BaseCharacterController
             }
         }
     }
+
+    #region 하루 초기화 관련
+    void CacheInitTransform()
+    {
+        if (!_hasInitTransform)
+        {
+            _initPosition = _trans.position;
+            _initRotation = _trans.rotation;
+            _hasInitTransform = true;
+        }
+
+        if (_cameraPivot != null)
+        {
+            _initPitch = _cameraPivot.localEulerAngles.x;
+        }
+    }
+    void EnsureRegisteredWithDayCycle()
+    {
+        if (_registerRoutine != null) { return; }
+
+        if (UIManager.GetInstance.GetDayCycleManager != null)
+        {
+            UIManager.GetInstance.GetDayCycleManager.RegisterResettable(this);
+        }
+        else
+        {
+            _registerRoutine = StartCoroutine(RegisterWhenReady());
+        }
+    }
+    IEnumerator RegisterWhenReady()
+    {
+        while (UIManager.GetInstance.GetDayCycleManager == null)
+        {
+            yield return null;
+        }
+
+        UIManager.GetInstance.GetDayCycleManager.RegisterResettable(this);
+        _registerRoutine = null;
+    }
+    public void ResetForNewDay()
+    {
+        if (_inventory != null)
+        {
+            _inventory.ClearAll();
+        }
+
+        if (_inventoryUI != null)
+        {
+            _inventoryUI.Refresh();
+            _inventoryUI.OnInventoryChanged?.Invoke();
+        }
+
+        if (_inventoryOpen)
+        {
+            _inventoryOpen = false;
+            if (_inventoryUI != null)
+            {
+                _inventoryUI.InventoryRootActive(false);
+            }
+            _cursorManager?.SetMode(ECursorMode.E_GamePlay);
+        }
+
+        // 손에 들고 있었다면 오브젝트 없애주기
+        if (_currentHeld != null)
+        {
+            Destroy(_currentHeld);
+            _currentHeld = null;
+        }
+        _currentSlot = -1;
+
+        _moveInput = Vector2.zero;
+        _vel = Vector3.zero;
+        _velDamp = Vector3.zero;
+
+        if (_agent != null)
+        {
+            _agent.ResetPath();
+            _agent.nextPosition = _initPosition;
+        }
+
+        if (_rigidbody != null)
+        {
+            _rigidbody.angularVelocity = Vector3.zero;
+            _rigidbody.angularVelocity = Vector3.zero;
+            _rigidbody.position = _initPosition;
+            _rigidbody.rotation = _initRotation;
+        }
+
+        _trans.SetPositionAndRotation(_initPosition, _initRotation);
+
+        _yawWanted = _initRotation.eulerAngles.y;
+        _pitch = Mathf.Clamp(_initPitch, _pitchMin, _pitchMax);
+        if (_cameraPivot != null)
+        {
+            _cameraPivot.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+        }
+
+        if (_yawIsOnRoot && _rigidbody != null)
+        {
+            _rigidbody.MoveRotation(_initRotation);
+        }
+        else if (_yawSource != null)
+        {
+            _yawSource.rotation = _initRotation;
+        }
+
+        if (_curState != eCharacterStates.Idle)
+        {
+            SetState(eCharacterStates.Idle);
+        }
+    }
+    #endregion
 
     public bool InventoryCheck { get { return _inventoryOpen; } }
 }

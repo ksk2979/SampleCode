@@ -190,17 +190,6 @@ public class InventoryUI : MonoBehaviour
             Refresh();
             OnInventoryChanged?.Invoke();
         }
-
-        //Debug.Log($"드롭 감지 - 슬롯 {targetSlot} ({_hetKeySlot[targetSlot]._icon.gameObject.name})로 드롭됨");
-
-        // 아이템 스왑
-        //SwapSlots(_draggingFrom, targetSlot);
-        //_draggingFrom = -1;
-        //Destroy(_draggingIcon.gameObject);
-        //_draggingIcon = null;
-        //Refresh();
-        //
-        //OnInventoryChanged?.Invoke();
     }
 
     void SwapSlots(int from, int to)

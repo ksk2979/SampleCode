@@ -96,4 +96,13 @@ public class Inventory : MonoBehaviour
 
         return leftover == 0;
     }
+
+    public void ClearAll()
+    {
+        for (int i = 0; i < _slots.Length; ++i)
+        {
+            _slots[i]._item = null;
+            _slots[i]._count = 0;
+        }
+    }
 }
