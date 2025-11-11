@@ -9,7 +9,6 @@ public class DayCycleManager : MonoBehaviour
     [Header("Referencec")]
     GameTimeManager _gameTimeManager;
     [SerializeField] FadeInOutScript _dayTransitionFade;
-    //[SerializeField] GameObject _dayTransitionRoot;
     [SerializeField] TextMeshProUGUI _dayTransitionTitle;
     [SerializeField] TextMeshProUGUI _dayTransitionSubtitle;
     [SerializeField] GameObject _gameEndingRoot;
@@ -51,10 +50,7 @@ public class DayCycleManager : MonoBehaviour
         }
 
         _dayCompleted = Mathf.Clamp(_currentDayNumber - 1, 0, _totalDays);
-    }
 
-    private void OnEnable()
-    {
         if (_gameTimeManager != null)
         {
             _gameTimeManager.OnMinuteChanged += HandleMinuteChanged;
@@ -62,6 +58,7 @@ public class DayCycleManager : MonoBehaviour
 
         RefreshTransitionTexts();
     }
+
     private void OnDisable()
     {
         if (_gameTimeManager != null)
@@ -95,7 +92,7 @@ public class DayCycleManager : MonoBehaviour
 
     void HandleMinuteChanged(DateTime currentTime)
     {
-        Debug.Log($"{currentTime.Hour}, {currentTime.Minute}, {currentTime.Second}");
+        //Debug.Log($"{currentTime.Hour}, {currentTime.Minute}, {currentTime.Second}");
         if (_isTransitioning) { return; }
         if (_gameTimeManager != null && _gameTimeManager.IsPaused()) { return; }
 
@@ -152,8 +149,6 @@ public class DayCycleManager : MonoBehaviour
             yield return YieldInstructionCache.RealTimeWaitForSeconds(_fadeOutWait);
         }
 
-        //HideDayTransitionUI();
-
         if (_gameTimeManager != null)
         {
             _gameTimeManager.Pause(false);
@@ -165,11 +160,6 @@ public class DayCycleManager : MonoBehaviour
 
     void ShowDayTransitionUI()
     {
-        //if (_dayTransitionRoot != null)
-        //{
-        //    _dayTransitionRoot.SetActive(true);
-        //}
-
         if (_dayTransitionTitle != null)
         {
             _dayTransitionTitle.text = string.Format("{0}일차 종료", _currentDayNumber);
@@ -177,14 +167,6 @@ public class DayCycleManager : MonoBehaviour
 
         UpdateRemainingDaysText(DaysRemaining - 1);
     }
-
-    //void HideDayTransitionUI()
-    //{
-    //    if (_dayTransitionRoot != null)
-    //    {
-    //        _dayTransitionRoot.SetActive(false);
-    //    }
-    //}
 
     bool CompleteDayAndPrepareNext()
     {
@@ -248,16 +230,11 @@ public class DayCycleManager : MonoBehaviour
 
             _gameEndingText.text = message;
         }
-
-        //if (_dayTransitionRoot != null)
-        //{
-        //    _dayTransitionRoot.SetActive(false);
-        //}
     }
 
     void UpdateRemainingDaysText(int daysremaining)
     {
-        if (_dayTransitionSubtitle != null) { return; }
+        if (_dayTransitionSubtitle == null) { return; }
         daysremaining = Mathf.Max(0, daysremaining);
         _dayTransitionSubtitle.text = string.Format("남은 기간: {0}일", daysremaining);
     }
