@@ -6,6 +6,7 @@ using UnityEngine.UI;
 public class UIManager : SceneStaticObj<UIManager>
 {
     GameTimeManager _gameTimeManager;
+    DayCycleManager _dayCycleManager;
     [SerializeField] TextMeshProUGUI[] _timeTextArr; // 0 day, 1 hour, 2 minute
     [SerializeField] Image _stressGaugeImg;
     [SerializeField] InventoryUI _inventoryUI;
@@ -18,6 +19,8 @@ public class UIManager : SceneStaticObj<UIManager>
         _gameTimeManager = this.GetComponent<GameTimeManager>();
         _gameTimeManager.Init();
         _gameTimeManager.SetScaleByMapping(30f, 8f);
+        _dayCycleManager = this.GetComponent<DayCycleManager>();
+        _dayCycleManager.Init(_gameTimeManager);
 
         _gameTimeManager.OnMinuteChanged += UpdateUI;
         _gameTimeManager.OnHourChanged += UpdateUI;
@@ -51,9 +54,10 @@ public class UIManager : SceneStaticObj<UIManager>
         _stressGaugeImg.fillAmount = gauge;
     }
 
-    public GameTimeManager GetGameTimeManager { get { return _gameTimeManager; } }
-    public InventoryUI GetInventoryUI { get { return _inventoryUI; } }
-    public AimScript GetAim { get { return _aimScript; } }
-    public OptionManager GetOptionManager { get { return _optionManager; } }
-    public CursorManager GetCursorManager { get { return _cursorManager; } }
+    public DayCycleManager GetDayCycleManager => _dayCycleManager;
+    public GameTimeManager GetGameTimeManager => _gameTimeManager;
+    public InventoryUI GetInventoryUI => _inventoryUI;
+    public AimScript GetAim => _aimScript;
+    public OptionManager GetOptionManager => _optionManager;
+    public CursorManager GetCursorManager => _cursorManager;
 }

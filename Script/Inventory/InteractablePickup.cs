@@ -1,9 +1,53 @@
 ﻿using UnityEngine;
+using System.Collections;
 
-public class InteractablePickup : MonoBehaviour, IInteractable
+public class InteractablePickup : MonoBehaviour, IInteractable, IDayResettable
 {
     [SerializeField] ItemData _item;
     [SerializeField] int _amount = 1;
+    [SerializeField] bool _resetOnNewDay = true;
+
+    DayCycleManager _dayCycleManager;
+
+    int _initialAmount;
+    Coroutine _registerRoutine;
+
+    public void Init()
+    {
+        _initialAmount = _amount;
+        _dayCycleManager = UIManager.GetInstance.GetDayCycleManager;
+    }
+
+    void OnEnable()
+    {
+        if (_registerRoutine != null)
+        {
+            StopCoroutine(_registerRoutine);
+            _registerRoutine = null;
+        }
+
+        if (_resetOnNewDay)
+        {
+            _registerRoutine = StartCoroutine(RegisterWhenReady());
+        }
+    }
+
+    void OnDisable() 
+    {
+        if (_registerRoutine != null)
+        {
+            StopCoroutine(_registerRoutine);
+            _registerRoutine = null;
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (_dayCycleManager != null)
+        {
+            _dayCycleManager.UnregisterResettable(this);
+        }
+    }
 
     public bool TryPickup(Inventory to)
     {
@@ -15,9 +59,25 @@ public class InteractablePickup : MonoBehaviour, IInteractable
             if (picked > 0)
             {
                 // 남은 게 없으면 파괴
-                if (left <= 0) Destroy(gameObject);
-                else _amount = left; // 일부만 주웠으면 남은 양 업데이트
-                return true;
+                //if (left <= 0) Destroy(gameObject);
+                //else _amount = left; // 일부만 주웠으면 남은 양 업데이트
+
+                if (left <= 0)
+                {
+                    _amount = 0;
+                    if (_resetOnNewDay)
+                    {
+                        gameObject.SetActive(false);
+                    }
+                }
+                else
+                {
+                    {
+                        _amount = left;
+                    }
+                }
+
+                    return true;
             }
         }
         return false;
@@ -37,5 +97,28 @@ public class InteractablePickup : MonoBehaviour, IInteractable
     public string GetInteractPrompt()
     {
         return $"{_item._itemName}을\n습득한다";
+    }
+
+    IEnumerator RegisterWhenReady()
+    {
+        while (_dayCycleManager == null)
+        {
+            yield return null;
+        }
+
+        _dayCycleManager.RegisterResettable(this);
+        _registerRoutine = null;
+    }
+
+    public void ResetForNewDay()
+    {
+        if (!_resetOnNewDay) { return; }
+
+        _amount = Mathf.Max(1, _initialAmount);
+
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
     }
 }

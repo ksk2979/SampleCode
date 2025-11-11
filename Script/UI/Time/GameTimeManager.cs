@@ -8,12 +8,12 @@ public class GameTimeManager : MonoBehaviour
     [SerializeField] float _gameSecondsPerRealSecond = 16f;
 
     [Header("Start Time (Game)")]
-    [SerializeField] int _startYear = 2025; // 년
-    [SerializeField] int _startMonth = 10; // 월
-    [SerializeField] int _startDay = 1; // 일
-    [SerializeField] int _startHour = 8; // 시
-    [SerializeField] int _startMinute = 0; // 분
-    [SerializeField] int _startSecond = 0; // 초
+    int _startYear = 2025; // 년
+    int _startMonth = 10; // 월
+    int _startDay = 1; // 일
+    int _startHour = 9; // 시
+    int _startMinute = 0; // 분
+    int _startSecond = 0; // 초
 
     [Header("Options")]
     [SerializeField] bool _useUnscaledTime = true;
