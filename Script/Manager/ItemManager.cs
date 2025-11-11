@@ -6,7 +6,7 @@ public class ItemManager : MonoBehaviour
 {
     [SerializeField] List<InteractablePickup> _itemList;
 
-    private void Awake()
+    private void Start()
     {
         for (int i = 0; i < _itemList.Count; ++i)
         {

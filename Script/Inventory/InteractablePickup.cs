@@ -16,10 +16,7 @@ public class InteractablePickup : MonoBehaviour, IInteractable, IDayResettable
     {
         _initialAmount = _amount;
         _dayCycleManager = UIManager.GetInstance.GetDayCycleManager;
-    }
 
-    void OnEnable()
-    {
         if (_registerRoutine != null)
         {
             StopCoroutine(_registerRoutine);
