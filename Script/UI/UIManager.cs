@@ -13,8 +13,8 @@ public class UIManager : SceneStaticObj<UIManager>
     [SerializeField] AimScript _aimScript;
     [SerializeField] OptionManager _optionManager;
     [SerializeField] CursorManager _cursorManager;
-
-    private void Awake()
+    
+    void Awake()
     {
         _gameTimeManager = this.GetComponent<GameTimeManager>();
         _gameTimeManager.Init();
@@ -30,7 +30,7 @@ public class UIManager : SceneStaticObj<UIManager>
         _cursorManager.Init();
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
         if (_gameTimeManager != null)
         {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// 조합 관련 데이터
 [CreateAssetMenu(menuName = "Game/CraftingRecipeData")]
 public class CraftingRecipeData : ScriptableObject
 {

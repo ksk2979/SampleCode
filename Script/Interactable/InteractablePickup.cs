@@ -10,32 +10,20 @@ public class InteractablePickup : MonoBehaviour, IInteractable, IDayResettable
     DayCycleManager _dayCycleManager;
 
     int _initialAmount;
-    Coroutine _registerRoutine;
+
+    GameObject _spawnObj; // 생성되는 오브젝트
 
     public void Init()
     {
         _initialAmount = _amount;
         _dayCycleManager = UIManager.GetInstance.GetDayCycleManager;
 
-        if (_registerRoutine != null)
+        if (_dayCycleManager != null)
         {
-            StopCoroutine(_registerRoutine);
-            _registerRoutine = null;
+            _dayCycleManager.RegisterResettable(this);
         }
 
-        if (_resetOnNewDay)
-        {
-            _registerRoutine = StartCoroutine(RegisterWhenReady());
-        }
-    }
-
-    void OnDisable() 
-    {
-        if (_registerRoutine != null)
-        {
-            StopCoroutine(_registerRoutine);
-            _registerRoutine = null;
-        }
+        SpawnObject();
     }
 
     void OnDestroy()
@@ -55,10 +43,6 @@ public class InteractablePickup : MonoBehaviour, IInteractable, IDayResettable
             int picked = _amount - left;
             if (picked > 0)
             {
-                // 남은 게 없으면 파괴
-                //if (left <= 0) Destroy(gameObject);
-                //else _amount = left; // 일부만 주웠으면 남은 양 업데이트
-
                 if (left <= 0)
                 {
                     _amount = 0;
@@ -69,15 +53,25 @@ public class InteractablePickup : MonoBehaviour, IInteractable, IDayResettable
                 }
                 else
                 {
-                    {
-                        _amount = left;
-                    }
+                    _amount = left;
                 }
 
                     return true;
             }
         }
         return false;
+    }
+
+    void SpawnObject()
+    {
+        if (_spawnObj != null) { Destroy(_spawnObj); }
+
+        if (_item != null && _item._holdPrefab != null)
+        {
+            _spawnObj = Instantiate(_item._holdPrefab, transform);
+            _spawnObj.transform.localPosition = Vector3.zero;
+            _spawnObj.transform.localRotation = Quaternion.identity;
+        }
     }
 
     public void Interact(PlayerController player)
@@ -94,17 +88,6 @@ public class InteractablePickup : MonoBehaviour, IInteractable, IDayResettable
     public string GetInteractPrompt()
     {
         return $"{_item._itemName}을\n습득한다";
-    }
-
-    IEnumerator RegisterWhenReady()
-    {
-        while (_dayCycleManager == null)
-        {
-            yield return null;
-        }
-
-        _dayCycleManager.RegisterResettable(this);
-        _registerRoutine = null;
     }
 
     public void ResetForNewDay()

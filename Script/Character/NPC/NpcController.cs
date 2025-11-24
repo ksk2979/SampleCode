@@ -1,10 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem;
 
-public class NpcController : BaseCharacterController
+public class NpcController : BaseCharacterController, IDayResettable
 {
     [Header("Move(NPC)")]
     [SerializeField] protected float _stoppingDistance = 0.2f;  // 아주 근접 판정
@@ -12,6 +13,11 @@ public class NpcController : BaseCharacterController
     [SerializeField] protected float _agentSpeed = 3.5f;        // NavMeshAgent 속도
     [SerializeField] protected float _agentAngularSpeed = 720f; // 회전 속도
     [SerializeField] protected float _agentAccel = 12f;
+
+    protected Vector3 _initPosition;
+    protected Quaternion _initRotation;
+    protected bool _hasInitTransform;
+    protected DayCycleManager _dayCycleManager;
 
     public override void OnStart()
     {
@@ -39,8 +45,19 @@ public class NpcController : BaseCharacterController
 
         _moveSpeed = _agentSpeed;
         SetState(eCharacterStates.Idle);
+
+        CacheInitTransform();
+        EnsureRegisteredWithDayCycle();
     }
     
+    protected virtual void OnDisable()
+    {
+        if (_dayCycleManager != null)
+        {
+            _dayCycleManager.UnregisterResettable(this);
+        }
+    }
+
     void StartMove()
     {
         SetState(eCharacterStates.Move);
@@ -103,4 +120,53 @@ public class NpcController : BaseCharacterController
         }
     }
 
+    void CacheInitTransform()
+    {
+        if (_hasInitTransform) { return; }
+
+        _initPosition = _trans.position;
+        _initRotation = _trans.rotation;
+        _hasInitTransform = true;
+    }
+
+    void EnsureRegisteredWithDayCycle()
+    {
+        var uiManager = UIManager.GetInstance;
+        if (uiManager != null)
+        {
+            var dayCycle = uiManager.GetDayCycleManager;
+            if (dayCycle != null)
+            {
+                dayCycle.RegisterResettable(this);
+                _dayCycleManager = dayCycle;
+            }
+        }
+    }
+
+    public virtual void ResetForNewDay()
+    {
+        if (_hasInitTransform) { return; }
+
+        if (_agent != null)
+        {
+            _agent.ResetPath();
+            _agent.Warp(_initPosition);
+            _agent.isStopped = true;
+        }
+
+        if (_rigidbody != null)
+        {
+            _rigidbody.angularVelocity = Vector3.zero;
+            _rigidbody.angularVelocity = Vector3.zero;
+            _rigidbody.position = _initPosition;
+            _rigidbody.rotation = _initRotation;
+        }
+
+        _trans.SetPositionAndRotation(_initPosition, _initRotation);
+
+        if (_curState != eCharacterStates.Idle)
+        {
+            SetState(eCharacterStates.Idle);
+        }
+    }
 }

@@ -1,5 +1,14 @@
 ﻿using UnityEngine;
 
+public enum ItemType
+{
+    [Tooltip("소모품")]
+    Consumable,     // 소모품
+    [Tooltip("도구")]
+    Tool,           // 도구, 소모 안됨
+    NONE,
+}
+
 [CreateAssetMenu(menuName = "Game/ItemData")]
 public class ItemData : ScriptableObject
 {
@@ -11,4 +20,7 @@ public class ItemData : ScriptableObject
 
     [Header("World/Hand Prefab")]
     public GameObject _holdPrefab;
+
+    [Header("Item Type")]
+    public ItemType _type;
 }

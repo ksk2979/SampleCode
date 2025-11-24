@@ -13,7 +13,7 @@ public class SceneStaticObj<T> : MonoBehaviour where T : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = GameObject.FindObjectOfType(typeof(T)) as T;
+                _instance = FindAnyObjectByType(typeof(T)) as T;
             }
             if (_instance == null)
             {

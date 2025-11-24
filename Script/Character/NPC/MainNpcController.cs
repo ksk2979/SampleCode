@@ -8,11 +8,6 @@ public class MainNpcController : NpcController
     [SerializeField] float _stressGauge = 0f;
     UIManager _uiManager;
 
-    private void Start()
-    {
-        OnStart();
-    }
-
     public override void OnStart()
     {
         base.OnStart();

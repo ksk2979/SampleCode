@@ -51,11 +51,26 @@ public class PlayerController : BaseCharacterController, IDayResettable
 
     OptionManager _optionManager;
     CursorManager _cursorManager;
-    Coroutine _registerRoutine;
+    DayCycleManager _dayCycleManager;
     Vector3 _initPosition;
     Quaternion _initRotation;
     bool _hasInitTransform;
     float _initPitch;
+
+    bool _isRun = false;
+    float _defaultMoveSpeed = 2f; // 기본 이동속도
+    float _runSpeed = 4f; // 달릴때 이동속도
+    float _crouchSpeed = 1f; // 앉을때 이동속도
+    // 앉기
+    bool _isCrouching = false; // 앉기 상태여부
+    float _crouchTargetY = 0.8f; // 임의로 카메라 내릴때 값
+    float _crouchDownSpeed = 6f; // 앉았다 일어났다 속도
+    float _cameraPivotDefaultY; // 카메라 원래 값
+    Coroutine _crouchRoutine;
+
+    // 오브젝트 들기
+    Rigidbody _dragTarget;
+    float _dragDistance;
 
     public override void OnStart()
     {
@@ -80,7 +95,7 @@ public class PlayerController : BaseCharacterController, IDayResettable
         _yawWanted = e.y;
         if (_cameraPivot) _pitch = _cameraPivot.localEulerAngles.x;
 
-        _moveSpeed = 2f; // 달리기 속도 4f
+        _moveSpeed = _defaultMoveSpeed; // 달리기 속도 4f
 
         if (_agent != null)
         {
@@ -96,9 +111,12 @@ public class PlayerController : BaseCharacterController, IDayResettable
         _aim = UIManager.GetInstance.GetAim;
         _optionManager = UIManager.GetInstance.GetOptionManager;
         _cursorManager = UIManager.GetInstance.GetCursorManager;
+        _dayCycleManager = UIManager.GetInstance.GetDayCycleManager;
 
         if (_inventoryUI != null)
             _inventoryUI.OnInventoryChanged += HandleInventoryChanged;
+
+        if (_cameraPivot != null) { _cameraPivotDefaultY = _cameraPivot.localPosition.y; }
 
         CacheInitTransform();
         EnsureRegisteredWithDayCycle();
@@ -108,12 +126,6 @@ public class PlayerController : BaseCharacterController, IDayResettable
     {
         if (_inventoryUI != null)
             _inventoryUI.OnInventoryChanged -= HandleInventoryChanged;
-
-        if (_registerRoutine != null)
-        {
-            StopCoroutine(_registerRoutine);
-            _registerRoutine = null;
-        }
 
         if (UIManager.GetInstance.GetDayCycleManager != null)
         {
@@ -147,6 +159,8 @@ public class PlayerController : BaseCharacterController, IDayResettable
         TryRequestMoveState();
         // 달리기
         RunSpeedUpdate();
+        // 앉기
+        CrouchUpdate();
 
         // 마우스 민감도 셋팅 []
         MouseSensitivitySettingKey();
@@ -158,6 +172,8 @@ public class PlayerController : BaseCharacterController, IDayResettable
         InteractUpdate();
         // 단축키 1~6
         HotkeyUpdate();
+        // 오브젝트 드롭
+        GrabUpdate();
     }
 
     protected override void FixedUpdate()
@@ -199,9 +215,66 @@ public class PlayerController : BaseCharacterController, IDayResettable
     {
         var kb = Keyboard.current;
         if (kb == null) { return; }
+        if (_isCrouching) { return; }
 
-        if (kb.leftShiftKey.isPressed) { _moveSpeed = 4f; }
-        else { _moveSpeed = 2f; }
+        bool shiftPressed = kb.leftShiftKey.isPressed;
+
+        if (shiftPressed && !_isRun)
+        {
+            _isRun = true;
+            _moveSpeed = _runSpeed;
+        }
+        else if (!shiftPressed && _isRun)
+        {
+            _isRun = false;
+            _moveSpeed = _defaultMoveSpeed;
+        }
+    }
+    void CrouchUpdate()
+    {
+        var kb = Keyboard.current;
+        if (kb == null) { return; }
+        if (_isRun) { return; }
+
+        bool ctrlPressed = kb.leftCtrlKey.isPressed;
+
+        if (ctrlPressed && !_isCrouching)
+        {
+            _isCrouching = true;
+            _moveSpeed = _crouchSpeed;
+            StartCrouch(true);
+        }
+        else if (!ctrlPressed && _isCrouching)
+        {
+            _isCrouching = false;
+            _moveSpeed = _defaultMoveSpeed;
+            StartCrouch(false);
+        }
+    }
+    void StartCrouch(bool crouch)
+    {
+        if (_crouchRoutine != null) { StopCoroutine(_crouchRoutine); }
+        _crouchRoutine = StartCoroutine(CrouchRoutine(crouch));
+    }
+    IEnumerator CrouchRoutine(bool crouch)
+    {
+        if (_cameraPivot == null) { yield break; }
+
+        float startY = _cameraPivot.localPosition.y;
+        float endY = crouch ? _crouchTargetY : _cameraPivotDefaultY;
+        float t = 0f;
+
+        while (t < 1f)
+        {
+            t += Time.deltaTime * _crouchDownSpeed;
+            float y = Mathf.Lerp(startY, endY, t);
+
+            Vector3 pos = _cameraPivot.localPosition;
+            pos.y = y;
+            _cameraPivot.localPosition = pos;
+
+            yield return YieldInstructionCache.WaitForFixedUpdate;
+        }
     }
 
     void TryRequestMoveState()
@@ -293,7 +366,13 @@ public class PlayerController : BaseCharacterController, IDayResettable
             }
         }
 
-        _rigidbody.MovePosition(_rigidbody.position + new Vector3(step.x, 0f, step.z));
+        Vector3 targetPos = _rigidbody.position + new Vector3(step.x, 0f, step.z);
+        NavMeshHit navHit;
+        bool onNav = NavMesh.SamplePosition(targetPos, out navHit, 0.3f, NavMesh.AllAreas);
+        if (onNav)
+        {
+            _rigidbody.MovePosition(_rigidbody.position + new Vector3(step.x, 0f, step.z));
+        }
 
         if (_animator != null)
         {
@@ -366,13 +445,13 @@ public class PlayerController : BaseCharacterController, IDayResettable
         // 에임에 두깨를 주는것이면 이곳으로
         if (_interactRadius > 0f)
         {
-            hasHit = Physics.SphereCast(origin, _interactRadius, dir, out hit, _interactDistance, _interactMask, QueryTriggerInteraction.Ignore);
+            hasHit = Physics.SphereCast(origin, _interactRadius, dir, out hit, _interactDistance, _interactMask, QueryTriggerInteraction.Collide);
         }
         else
         {
-            hasHit = Physics.Raycast(origin, dir, out hit, _interactDistance, _interactMask, QueryTriggerInteraction.Ignore);
+            hasHit = Physics.Raycast(origin, dir, out hit, _interactDistance, _interactMask, QueryTriggerInteraction.Collide);
         }
-        //Debug.DrawRay(origin, dir * _interactDistance, hasHit ? Color.green : Color.red); // 거리 시각화 (디버그용으로 필요시 활성화)
+        Debug.DrawRay(origin, dir * _interactDistance, hasHit ? Color.green : Color.red); // 거리 시각화 (디버그용으로 필요시 활성화)
 
         //if (!Keyboard.current[_interactKey].wasPressedThisFrame) return;
         if (!hasHit) { /*Debug.Log("히트 없음");*/ return; }
@@ -397,11 +476,11 @@ public class PlayerController : BaseCharacterController, IDayResettable
     //    if (_interactRadius > 0f)
     //    {
     //        Gizmos.DrawWireSphere(_cameraPivot.position, _interactRadius);
-    //        Gizmos.DrawWireSphere(_cameraPivot.position + _cameraPivot.forward * _interactDistance, _interactRadius);
+    //        Gizmos.DrawWireSphere(_cameraPivot.position + _cameraPivot.forward * _interactDistance,_interactRadius);
     //    }
     //    else
     //    {
-    //        Gizmos.DrawLine(_cameraPivot.position, _cameraPivot.position + _cameraPivot.forward * _interactDistance);
+    //        Gizmos.DrawLine(_cameraPivot.position, _cameraPivot.position + _cameraPivot.forward *_interactDistance);
     //    }
     //}
 
@@ -415,7 +494,7 @@ public class PlayerController : BaseCharacterController, IDayResettable
 
         bool hasHit = false;
         RaycastHit hit;
-        hasHit = Physics.Raycast(origin, dir, out hit, _interactDistance, _interactMask, QueryTriggerInteraction.Ignore);
+        hasHit = Physics.Raycast(origin, dir, out hit, _interactDistance, _interactMask, QueryTriggerInteraction.Collide); // Ignore 트리거 무시였음
 
         if (_aim == null) { return; }
 
@@ -424,7 +503,7 @@ public class PlayerController : BaseCharacterController, IDayResettable
             if (!_aim.CheckTextActive)
             {
                 _aim.TextActive(true);
-                var interactable = hit.collider.GetComponent<IInteractable>();
+                var interactable = hit.collider.GetComponentInParent<IInteractable>();
                 if (interactable != null)
                 {
                     InteractionManager.GetInstance.SetTarget(interactable);
@@ -493,12 +572,12 @@ public class PlayerController : BaseCharacterController, IDayResettable
             if (_inventoryOpen)
             {
                 // 인벤토리 열림 상태
-                UIManager.GetInstance.GetCursorManager.SetMode(ECursorMode.E_Inventory);
+                _cursorManager.SetMode(ECursorMode.E_Inventory);
             }
             else
             {
                 // 인벤토리 닫힘 상태
-                UIManager.GetInstance.GetCursorManager.SetMode(ECursorMode.E_GamePlay);
+                _cursorManager.SetMode(ECursorMode.E_GamePlay);
             }
         }
     }
@@ -542,6 +621,60 @@ public class PlayerController : BaseCharacterController, IDayResettable
         }
     }
 
+    void GrabUpdate()
+    {
+        var mouse = Mouse.current;
+        if (mouse == null) { return; }
+
+        if (mouse.leftButton.wasPressedThisFrame)
+        {
+            TryPickObject();
+        }
+
+        if (mouse.leftButton.isPressed && _dragTarget != null)
+        {
+            HoldObject();
+        }
+
+        if (mouse.leftButton.wasReleasedThisFrame)
+        {
+            DropObject();
+        }
+    }
+
+    void TryPickObject()
+    {
+        if (_dragTarget != null) return;
+
+        Vector3 origin = _cameraPivot.position;
+        Vector3 dir = _cameraPivot.forward;
+
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, _interactDistance, _interactMask))
+        {
+            _dragTarget = hit.rigidbody;
+            if (_dragTarget != null)
+            {
+                _dragDistance = hit.distance;
+                _dragTarget.useGravity = false;
+                _dragTarget.linearVelocity = Vector3.zero;
+
+                if (_aim.CheckTextActive) _aim.TextActive(false);
+            }
+        }
+    }
+    void HoldObject()
+    {
+        Vector3 targetPos = _cameraPivot.position + _cameraPivot.forward * _dragDistance;
+        Vector3 newPos = Vector3.Lerp(_dragTarget.position, targetPos, 20f * Time.deltaTime);
+        _dragTarget.MovePosition(newPos);
+    }
+    void DropObject()
+    {
+        if (_dragTarget == null) return;
+
+        _dragTarget.useGravity = true;
+        _dragTarget = null;
+    }
     #region 하루 초기화 관련
     void CacheInitTransform()
     {
@@ -559,26 +692,10 @@ public class PlayerController : BaseCharacterController, IDayResettable
     }
     void EnsureRegisteredWithDayCycle()
     {
-        if (_registerRoutine != null) { return; }
-
-        if (UIManager.GetInstance.GetDayCycleManager != null)
+        if (_dayCycleManager != null)
         {
-            UIManager.GetInstance.GetDayCycleManager.RegisterResettable(this);
+            _dayCycleManager.RegisterResettable(this);
         }
-        else
-        {
-            _registerRoutine = StartCoroutine(RegisterWhenReady());
-        }
-    }
-    IEnumerator RegisterWhenReady()
-    {
-        while (UIManager.GetInstance.GetDayCycleManager == null)
-        {
-            yield return null;
-        }
-
-        UIManager.GetInstance.GetDayCycleManager.RegisterResettable(this);
-        _registerRoutine = null;
     }
     public void ResetForNewDay()
     {
@@ -655,4 +772,5 @@ public class PlayerController : BaseCharacterController, IDayResettable
     #endregion
 
     public bool InventoryCheck { get { return _inventoryOpen; } }
+    public int CurrentSlot => _currentSlot;
 }

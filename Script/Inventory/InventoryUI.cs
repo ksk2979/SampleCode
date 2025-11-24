@@ -4,6 +4,8 @@ using UnityEngine.EventSystems;
 using TMPro;
 using System;
 using System.Collections.Generic;
+using Unity.VisualScripting.FullSerializer;
+using System.Collections.Concurrent;
 
 public class InventoryUI : MonoBehaviour
 {
@@ -229,13 +231,42 @@ public class InventoryUI : MonoBehaviour
             if (a._count <= 0 || b._count <= 0) { return false; }
         }
 
+        // 도구 인지 소비인지 체크
+        bool consumaA = (a._item._type == ItemType.Consumable);
+        bool consumaB = (b._item._type == ItemType.Consumable);
+
+        bool ra = true;
+        bool rb = true;
+
+        if (consumaA)
+        {
+            ra = _inventory.RemoveAt(from, 1);
+        }
+        if (consumaB)
+        {
+            rb = _inventory.RemoveAt(to, 1);
+        }
+
         // 각 1개씩 제거
-        bool ra = _inventory.RemoveAt(from, 1);
-        bool rb = _inventory.RemoveAt(to, 1);
         if (!ra || !rb) { return false; }
 
+        int preferSlot = -1;
+
+        if (consumaA && !consumaB)
+        {
+            preferSlot = from;
+        }
+        else if (!consumaA && consumaB)
+        {
+            preferSlot = to;
+        }
+        else
+        {
+            preferSlot = to;
+        }
+
         // 결과를 to 슬롯에 우선 배치, 남으면 일반 Add
-        bool placed = _inventory.TryAddPreferSlot(to, result, resultCount);
+        bool placed = _inventory.TryAddPreferSlot(preferSlot, result, resultCount);
         return placed;
     }
 
